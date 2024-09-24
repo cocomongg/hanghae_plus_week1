@@ -2,12 +2,16 @@ package io.hhplus.tdd.point.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.not;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.when;
 
 import io.hhplus.tdd.point.dto.PointDto.PointDetail;
 import io.hhplus.tdd.point.dto.PointDto.PointHistoryDetail;
 import io.hhplus.tdd.point.exception.PointErrorCode;
 import io.hhplus.tdd.point.exception.PointException;
+import io.hhplus.tdd.point.model.PointHistory;
+import io.hhplus.tdd.point.model.TransactionType;
 import io.hhplus.tdd.point.model.UserPoint;
 import io.hhplus.tdd.point.repository.PointHistoryRepository;
 import io.hhplus.tdd.point.repository.UserPointRepository;
@@ -94,6 +98,53 @@ class PointServiceTest {
 
             // then
             assertThat(pointHistoryDetails).isEmpty();
+        }
+
+        @DisplayName("userId에 해당하는 PointHistory dto(PointHistoryDetail)목록을 반환한다.")
+        @Test
+        void should_ReturnHistoryDetailList_When_Found() {
+            // given
+            long existUserId = 0L;
+
+            List<PointHistory> expectedPointHistories = List.of(
+                new PointHistory(0L, existUserId, 100L, TransactionType.CHARGE,
+                    System.currentTimeMillis()),
+                new PointHistory(0L, existUserId, 50L, TransactionType.USE,
+                    System.currentTimeMillis())
+            );
+
+            when(pointHistoryRepository.selectAllByUserId(existUserId))
+                .thenReturn(expectedPointHistories);
+
+            // when
+            List<PointHistoryDetail> pointHistoryDetails = pointService
+                .getUserPointHistories(existUserId);
+
+            // then
+            assertThat(pointHistoryDetails)
+                .hasSize(2)
+                .extracting(
+                    PointHistoryDetail::getId,
+                    PointHistoryDetail::getUserId,
+                    PointHistoryDetail::getAmount,
+                    PointHistoryDetail::getType,
+                    PointHistoryDetail::getUpdateMillis)
+                .containsExactlyInAnyOrder(
+                    tuple(
+                        expectedPointHistories.get(0).id(),
+                        expectedPointHistories.get(0).userId(),
+                        expectedPointHistories.get(0).amount(),
+                        expectedPointHistories.get(0).type(),
+                        expectedPointHistories.get(0).updateMillis()
+                    ),
+                    tuple(
+                        expectedPointHistories.get(1).id(),
+                        expectedPointHistories.get(1).userId(),
+                        expectedPointHistories.get(1).amount(),
+                        expectedPointHistories.get(1).type(),
+                        expectedPointHistories.get(1).updateMillis()
+                    )
+                );
         }
     }
 }
