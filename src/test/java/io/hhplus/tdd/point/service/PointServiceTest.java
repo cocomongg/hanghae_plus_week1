@@ -185,5 +185,39 @@ class PointServiceTest {
             assertThat(chargeResult.getUpdateMillis())
                 .isEqualTo(expectedUserPoint.updateMillis());
         }
+
+        @DisplayName("존재하는 id의 UserPoint에 amount만큼 더하고 저장한다.")
+        @Test
+        void should_AddAmountToUserPointAndSave_When_UserPointExists() {
+            // given
+            long existId = 1L;
+            long beforeAmount = 50L;
+            long chargeAmount = 100L;
+
+            UserPoint existUserPoint =
+                new UserPoint(existId, beforeAmount, System.currentTimeMillis());
+
+            doNothing().when(pointValidator).checkAmount(chargeAmount);
+
+            when(userPointRepository.selectById(existId))
+                .thenReturn(Optional.of(existUserPoint));
+
+            UserPoint expectedUserPoint = new UserPoint(existId, beforeAmount + chargeAmount,
+                System.currentTimeMillis());
+
+            when(userPointRepository.insertOrUpdate(any(UserPoint.class)))
+                .thenReturn(expectedUserPoint);
+
+            // when
+            PointDetail chargeResult = pointService.charge(existId, chargeAmount);
+
+            // then
+            assertThat(chargeResult.getId())
+                .isEqualTo(existId);
+            assertThat(chargeResult.getPointAmount())
+                .isEqualTo(beforeAmount + chargeAmount);
+            assertThat(chargeResult.getUpdateMillis())
+                .isEqualTo(expectedUserPoint.updateMillis());
+        }
     }
 }
