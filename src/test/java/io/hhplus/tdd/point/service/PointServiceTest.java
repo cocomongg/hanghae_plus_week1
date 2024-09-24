@@ -3,6 +3,8 @@ package io.hhplus.tdd.point.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 import io.hhplus.tdd.point.dto.PointDto.PointDetail;
@@ -14,6 +16,7 @@ import io.hhplus.tdd.point.model.TransactionType;
 import io.hhplus.tdd.point.model.UserPoint;
 import io.hhplus.tdd.point.repository.PointHistoryRepository;
 import io.hhplus.tdd.point.repository.UserPointRepository;
+import io.hhplus.tdd.point.validator.PointValidator;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +30,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class PointServiceTest {
+
+    @Mock
+    private PointValidator pointValidator;
 
     @Mock
     private UserPointRepository userPointRepository;
@@ -144,6 +150,40 @@ class PointServiceTest {
                         expectedPointHistories.get(1).updateMillis()
                     )
                 );
+        }
+    }
+    
+    @DisplayName("포인트 충전 - charge() 테스트")
+    @Nested
+    class ChargeTest {
+        @DisplayName("처음 충전 시 입력받은 정보로 UserPoint를 저장한다.")
+        @Test
+        void should_SaveUserPoint_When_FirstCharge() {
+            // given
+            long firstChargerId = 0L;
+            long chargeAmount = 100L;
+
+            doNothing().when(pointValidator).checkAmount(chargeAmount);
+
+            when(userPointRepository.selectById(firstChargerId))
+                .thenReturn(Optional.empty());
+
+            UserPoint expectedUserPoint = new UserPoint(firstChargerId, chargeAmount,
+                System.currentTimeMillis());
+
+            when(userPointRepository.insertOrUpdate(any(UserPoint.class)))
+                .thenReturn(expectedUserPoint);
+
+            // when
+            PointDetail chargeResult = pointService.charge(firstChargerId, chargeAmount);
+
+            // then
+            assertThat(chargeResult.getId())
+                .isEqualTo(firstChargerId);
+            assertThat(chargeResult.getPointAmount())
+                .isEqualTo(chargeAmount);
+            assertThat(chargeResult.getUpdateMillis())
+                .isEqualTo(expectedUserPoint.updateMillis());
         }
     }
 }
