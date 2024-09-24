@@ -1,10 +1,13 @@
 package io.hhplus.tdd.point.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+import io.hhplus.tdd.point.dto.PointDto.PointDetail;
 import io.hhplus.tdd.point.exception.PointErrorCode;
 import io.hhplus.tdd.point.exception.PointException;
+import io.hhplus.tdd.point.model.UserPoint;
 import io.hhplus.tdd.point.repository.UserPointRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +44,28 @@ class PointServiceTest {
             assertThatThrownBy(() -> pointService.getUserPoint(notExistId))
                 .isInstanceOf(PointException.class)
                 .hasMessage(PointErrorCode.NOT_FOUND_USER_POINT.getMessage());
+        }
+
+        @DisplayName("존재하는 id에 해당하는 PointDetail 를 반환한다.")
+        @Test
+        void should_ReturnPointDetail_When_ExistsById() {
+            // given
+            long existId = 0L;
+            UserPoint expectedUserPoint =
+                new UserPoint(existId, 100L, System.currentTimeMillis());
+
+            // when
+            when(userPointRepository.selectById(existId))
+                .thenReturn(Optional.of(expectedUserPoint));
+
+            // then
+            PointDetail pointDetail = pointService.getUserPoint(existId);
+            assertThat(pointDetail.getId())
+                .isEqualTo(existId);
+            assertThat(pointDetail.getPointAmount())
+                .isEqualTo(expectedUserPoint.point());
+            assertThat(pointDetail.getUpdateMillis())
+                .isEqualTo(expectedUserPoint.updateMillis());
         }
     }
 }

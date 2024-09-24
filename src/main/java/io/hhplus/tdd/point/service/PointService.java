@@ -14,8 +14,10 @@ public class PointService {
 
     private final UserPointRepository userPointRepository;
 
-    public void getUserPoint(long id) {
+    public PointDetail getUserPoint(long id) {
         UserPoint userPoint = userPointRepository.selectById(id)
             .orElseThrow(() -> PointException.NOT_FOUND_USER_POINT);
+
+        return PointDetail.of(userPoint);
     }
 }
