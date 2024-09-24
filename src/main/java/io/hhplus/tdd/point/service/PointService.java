@@ -4,6 +4,7 @@ package io.hhplus.tdd.point.service;
 import io.hhplus.tdd.point.dto.PointDto.PointDetail;
 import io.hhplus.tdd.point.dto.PointDto.PointHistoryDetail;
 import io.hhplus.tdd.point.exception.PointException;
+import io.hhplus.tdd.point.model.PointHistory;
 import io.hhplus.tdd.point.model.UserPoint;
 import io.hhplus.tdd.point.repository.PointHistoryRepository;
 import io.hhplus.tdd.point.repository.UserPointRepository;
@@ -44,6 +45,10 @@ public class PointService {
 
         UserPoint chargedUserPoint = userPoint.charge(amount);
         UserPoint savedUserPoint = userPointRepository.insertOrUpdate(chargedUserPoint);
+
+        PointHistory chargeHistory = PointHistory.createChargeHistory(savedUserPoint.id(),
+            savedUserPoint.point(), savedUserPoint.updateMillis());
+        pointHistoryRepository.insert(chargeHistory);
 
         return PointDetail.of(savedUserPoint);
     }

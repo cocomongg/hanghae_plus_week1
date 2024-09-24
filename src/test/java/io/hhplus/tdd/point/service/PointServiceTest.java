@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.hhplus.tdd.point.dto.PointDto.PointDetail;
@@ -218,6 +219,30 @@ class PointServiceTest {
                 .isEqualTo(beforeAmount + chargeAmount);
             assertThat(chargeResult.getUpdateMillis())
                 .isEqualTo(expectedUserPoint.updateMillis());
+        }
+
+        @DisplayName("충전을 완료한 뒤에 PointHistory를 저장한다.")
+        @Test
+        void should_SavePointHistory_When_AfterChargeFinish() {
+            // given
+            long id = 0L;
+            long chargeAmount = 100L;
+            UserPoint userPoint = new UserPoint(id, chargeAmount, System.currentTimeMillis());
+
+            doNothing().when(pointValidator).checkAmount(chargeAmount);
+
+            when(userPointRepository.selectById(id))
+                .thenReturn(Optional.empty());
+
+            when(userPointRepository.insertOrUpdate(any(UserPoint.class)))
+                .thenReturn(userPoint);
+
+            // when
+            pointService.charge(id, chargeAmount);
+
+            // then
+            verify(pointHistoryRepository)
+                .insert(PointHistory.createChargeHistory(id, chargeAmount, userPoint.updateMillis()));
         }
     }
 }
