@@ -2,7 +2,6 @@ package io.hhplus.tdd.point.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.not;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.when;
 
@@ -43,7 +42,7 @@ class PointServiceTest {
     class GetUserPointTest {
         @DisplayName("id에 해당하는 UserPoint가 존재하지 않으면 PointException이 발생한다.")
         @Test
-        void should_ThrowPointException_When_NotExistById() {
+        void should_ThrowPointException_When_NotFound() {
             // given
             long notExistId = -1L;
 
@@ -57,9 +56,9 @@ class PointServiceTest {
                 .hasMessage(PointErrorCode.NOT_FOUND_USER_POINT.getMessage());
         }
 
-        @DisplayName("존재하는 id에 해당하는 PointDetail 를 반환한다.")
+        @DisplayName("존재하는 id에 해당하는 UserPoint dto(PointDetail)를 반환한다.")
         @Test
-        void should_ReturnPointDetail_When_ExistsById() {
+        void should_ReturnPointDetail_When_Found() {
             // given
             long existId = 0L;
             UserPoint expectedUserPoint =
