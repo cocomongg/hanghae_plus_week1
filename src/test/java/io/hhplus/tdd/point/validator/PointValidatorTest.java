@@ -26,5 +26,17 @@ class PointValidatorTest {
                 .isInstanceOf(PointException.class)
                 .hasMessage(PointErrorCode.INVALID_POINT_AMOUNT.getMessage());
         }
+
+        @DisplayName("amount가 0이면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_When_AmountIsZero () {
+            // given
+            long zeroAmount = 0L;
+
+            // when, then
+            assertThatThrownBy(() -> pointValidator.checkAmount(zeroAmount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.INVALID_POINT_AMOUNT.getMessage());
+        }
     }
 }

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 public class PointValidator {
 
     public void checkAmount(long amount) {
-        if(amount < 0) {
+        if(amount <= 0) {
             throw PointException.INVALID_POINT_AMOUNT;
         }
     }
