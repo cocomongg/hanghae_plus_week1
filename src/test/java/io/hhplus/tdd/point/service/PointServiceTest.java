@@ -163,14 +163,13 @@ class PointServiceTest {
             // given
             long firstChargerId = 0L;
             long chargeAmount = 100L;
+            UserPoint expectedUserPoint = new UserPoint(firstChargerId, chargeAmount,
+                System.currentTimeMillis());
 
             doNothing().when(pointValidator).checkAmount(chargeAmount);
 
             when(userPointRepository.selectById(firstChargerId))
                 .thenReturn(Optional.empty());
-
-            UserPoint expectedUserPoint = new UserPoint(firstChargerId, chargeAmount,
-                System.currentTimeMillis());
 
             when(userPointRepository.insertOrUpdate(any(UserPoint.class)))
                 .thenReturn(expectedUserPoint);
@@ -194,17 +193,16 @@ class PointServiceTest {
             long existId = 1L;
             long beforeAmount = 50L;
             long chargeAmount = 100L;
+            UserPoint existUserPoint = new UserPoint(existId, beforeAmount,
+                System.currentTimeMillis());
 
-            UserPoint existUserPoint =
-                new UserPoint(existId, beforeAmount, System.currentTimeMillis());
+            UserPoint expectedUserPoint = new UserPoint(existId, beforeAmount + chargeAmount,
+                System.currentTimeMillis());
 
             doNothing().when(pointValidator).checkAmount(chargeAmount);
 
             when(userPointRepository.selectById(existId))
                 .thenReturn(Optional.of(existUserPoint));
-
-            UserPoint expectedUserPoint = new UserPoint(existId, beforeAmount + chargeAmount,
-                System.currentTimeMillis());
 
             when(userPointRepository.insertOrUpdate(any(UserPoint.class)))
                 .thenReturn(expectedUserPoint);

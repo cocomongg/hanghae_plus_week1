@@ -43,8 +43,9 @@ public class PointService {
         UserPoint userPoint = userPointRepository.selectById(id)
             .orElse(UserPoint.empty(id));
 
-        UserPoint chargedUserPoint = userPoint.charge(amount);
-        UserPoint savedUserPoint = userPointRepository.insertOrUpdate(chargedUserPoint);
+        UserPoint savedUserPoint = userPointRepository.insertOrUpdate(
+            userPoint.charge(amount)
+        );
 
         PointHistory chargeHistory = PointHistory.createChargeHistory(savedUserPoint.id(),
             savedUserPoint.point(), savedUserPoint.updateMillis());
