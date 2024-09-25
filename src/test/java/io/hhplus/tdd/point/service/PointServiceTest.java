@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -240,8 +241,12 @@ class PointServiceTest {
             pointService.charge(id, chargeAmount);
 
             // then
-            verify(pointHistoryRepository)
-                .insert(PointHistory.createChargeHistory(id, chargeAmount, userPoint.updateMillis()));
+            ArgumentCaptor<PointHistory> captor = ArgumentCaptor.forClass(PointHistory.class);
+            verify(pointHistoryRepository).insert(captor.capture());
+            PointHistory pointHistory = captor.getValue();
+
+            assertThat(pointHistory.id()).isEqualTo(id);
+            assertThat(pointHistory.amount()).isEqualTo(chargeAmount);
         }
     }
     
