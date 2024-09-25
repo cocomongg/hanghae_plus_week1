@@ -79,12 +79,9 @@ class PointServiceTest {
 
             // then
             PointDetail pointDetail = pointService.getUserPoint(existId);
-            assertThat(pointDetail.getId())
-                .isEqualTo(existId);
-            assertThat(pointDetail.getPointAmount())
-                .isEqualTo(expectedUserPoint.point());
-            assertThat(pointDetail.getUpdateMillis())
-                .isEqualTo(expectedUserPoint.updateMillis());
+            assertThat(pointDetail.getId()).isEqualTo(existId);
+            assertThat(pointDetail.getPointAmount()).isEqualTo(expectedUserPoint.point());
+            assertThat(pointDetail.getUpdateMillis()).isEqualTo(expectedUserPoint.updateMillis());
         }
     }
 
@@ -213,12 +210,9 @@ class PointServiceTest {
             PointDetail chargeResult = pointService.charge(existId, chargeAmount);
 
             // then
-            assertThat(chargeResult.getId())
-                .isEqualTo(existId);
-            assertThat(chargeResult.getPointAmount())
-                .isEqualTo(beforeAmount + chargeAmount);
-            assertThat(chargeResult.getUpdateMillis())
-                .isEqualTo(expectedUserPoint.updateMillis());
+            assertThat(chargeResult.getId()).isEqualTo(existId);
+            assertThat(chargeResult.getPointAmount()).isEqualTo(beforeAmount + chargeAmount);
+            assertThat(chargeResult.getUpdateMillis()).isEqualTo(expectedUserPoint.updateMillis());
         }
 
         @DisplayName("충전을 완료한 뒤에 PointHistory를 저장한다.")
