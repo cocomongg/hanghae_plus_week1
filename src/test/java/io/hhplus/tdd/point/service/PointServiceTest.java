@@ -243,4 +243,26 @@ class PointServiceTest {
                 .insert(PointHistory.createChargeHistory(id, chargeAmount, userPoint.updateMillis()));
         }
     }
+    
+    @DisplayName("포인트 사용 - use() 테스트")
+    @Nested
+    class UseTest {
+        @DisplayName("해당하는 id에 대한 UserPoint가 없으면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_WhenUserPointNotFound() {
+            // given
+            long notExistId = -1L;
+            long amount = 100L;
+
+            doNothing().when(pointValidator).checkAmount(amount);
+
+            when(userPointRepository.selectById(notExistId))
+                .thenReturn(Optional.empty());
+
+            // when, then
+            assertThatThrownBy(() -> pointService.use(notExistId, amount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.NOT_FOUND_USER_POINT.getMessage());
+        }
+    }
 }

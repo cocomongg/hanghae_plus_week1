@@ -53,4 +53,11 @@ public class PointService {
 
         return PointDetail.of(savedUserPoint);
     }
+
+    public void use(long id, long amount) {
+        pointValidator.checkAmount(amount);
+
+        UserPoint userPoint = userPointRepository.selectById(id)
+            .orElseThrow(() -> PointException.NOT_FOUND_USER_POINT);
+    }
 }
