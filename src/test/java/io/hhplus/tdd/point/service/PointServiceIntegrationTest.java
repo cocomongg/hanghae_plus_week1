@@ -213,4 +213,90 @@ public class PointServiceIntegrationTest {
             assertThat(pointHistory.type()).isEqualTo(TransactionType.CHARGE);
         }
     }
+    
+    @DisplayName("포인트 사용 통합 테스트 - use()")
+    @Nested
+    class UseIntegrationTest {
+        @DisplayName("포인트 사용 금액이 음수라면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_When_AmountIsNegative () {
+            // given
+            long negativeAmount = -100L;
+
+            // when, then
+            assertThatThrownBy(() -> pointService.use(0L, negativeAmount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.INVALID_POINT_AMOUNT.getMessage());
+        }
+
+        @DisplayName("포인트 사용 금액이 0이라면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_When_AmountIsZero () {
+            // given
+            long zeroAmount = 0L;
+
+            // when, then
+            assertThatThrownBy(() -> pointService.use(0L, zeroAmount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.INVALID_POINT_AMOUNT.getMessage());
+        }
+
+        @DisabledIf("isUserPointRepositoryUseTable")
+        @DisplayName("id에 해당하는 UserPoint가 없으면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_WhenUserPointNotFound() {
+            // given
+            long notExistId = -1L;
+
+            // when, then
+            assertThatThrownBy(() -> pointService.use(notExistId, 100L))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.NOT_FOUND_USER_POINT.getMessage());
+        }
+
+        @DisplayName("잔액이 부족하면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_WhenPointInsufficient() {
+            // given
+            long id = 0L;
+            long balanceAmount = 50L;
+            long useAmount = 100L;
+
+            UserPoint userPoint = new UserPoint(id, balanceAmount, System.currentTimeMillis());
+            userPointRepository.insertOrUpdate(userPoint);
+
+            // when, then
+            assertThatThrownBy(() -> pointService.use(id, useAmount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.INSUFFICIENT_POINT_BALANCE.getMessage());
+        }
+
+        @DisplayName("포인트 사용을 하면 사용한 만큼 차감된 UserPoint가 업데이트되고, PointHistory에 내역을 저장한다.")
+        @Test
+        void should_MinusAndUpdateUserPoint_AndSavePointHistory_When_Use() {
+            // given
+            long id = 0L;
+            long balanceAmount = 100L;
+            long useAmount = 50L;
+
+            UserPoint userPoint = new UserPoint(id, balanceAmount, System.currentTimeMillis());
+            userPointRepository.insertOrUpdate(userPoint);
+
+            // when
+            PointDetail result = pointService.use(id, useAmount);
+
+            // then
+            assertThat(result.getId()).isEqualTo(id);
+            assertThat(result.getPointAmount()).isEqualTo(balanceAmount - useAmount);
+
+            PointHistory pointHistory = pointHistoryRepository.selectAllByUserId(id).get(0);
+            assertThat(pointHistory.userId()).isEqualTo(id);
+            assertThat(pointHistory.amount()).isEqualTo(useAmount);
+            assertThat(pointHistory.type()).isEqualTo(TransactionType.USE);
+        }
+
+        boolean isUserPointRepositoryUseTable() {
+            return userPointRepository instanceof UserPointInMemoryRepository;
+        }
+    }
 }
