@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -263,6 +264,42 @@ class PointServiceTest {
             assertThatThrownBy(() -> pointService.use(notExistId, amount))
                 .isInstanceOf(PointException.class)
                 .hasMessage(PointErrorCode.NOT_FOUND_USER_POINT.getMessage());
+        }
+        
+        @DisplayName("포인트를 사용하면 사용한만큼 차감된 Point로 UserPoint를 업데이트하고, "
+            + "PointDetail dto로 변환하여 반환한다.")
+        @Test
+        void should_ReturnPointDetailAndUpdateUserPoint_When_Use() {
+            // given
+            long id = 0L;
+            long useAmount = 50L;
+            long balanceAmount = 100L;
+            UserPoint userPoint = new UserPoint(id, balanceAmount, System.currentTimeMillis());
+            UserPoint expectedUserPoint = new UserPoint(id, balanceAmount - useAmount,
+                System.currentTimeMillis());
+
+            when(userPointRepository.selectById(id))
+                .thenReturn(Optional.of(userPoint));
+
+            when(userPointRepository.insertOrUpdate(any(UserPoint.class)))
+                .thenReturn(expectedUserPoint);
+
+            // when
+            PointDetail pointDetail = pointService.use(id, useAmount);
+        
+            // then
+            assertThat(pointDetail.getId()).isEqualTo(id);
+            assertThat(pointDetail.getPointAmount()).isEqualTo(balanceAmount - useAmount);
+            assertThat(pointDetail.getUpdateMillis()).isEqualTo(expectedUserPoint.updateMillis());
+
+            // 위에서 System.currentMillis() 문제로 userPointRepository를 mocking할 때 인자를
+            // any()로 하여 호출했기 때문에 차감된 userPoint가 인자로 넘어가는지 검증
+            ArgumentCaptor<UserPoint> userPointCaptor = ArgumentCaptor.forClass(UserPoint.class);
+            verify(userPointRepository).insertOrUpdate(userPointCaptor.capture());
+            UserPoint capturedUserPoint = userPointCaptor.getValue();
+
+            assertThat(capturedUserPoint.id()).isEqualTo(id);
+            assertThat(capturedUserPoint.point()).isEqualTo(balanceAmount - useAmount);
         }
     }
 }
