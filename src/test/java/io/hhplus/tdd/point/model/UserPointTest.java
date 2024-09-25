@@ -11,6 +11,26 @@ import org.junit.jupiter.api.Test;
 
 class UserPointTest {
 
+    @DisplayName("포인트 충전 - charge() 테스트")
+    @Nested
+    class ChargeTest {
+        @DisplayName("포인트를 충전한 만큼 더하여 UserPoint를 반환한다.")
+        @Test
+        void should_PlusPointAndReturn_When_Charge() {
+            // given
+            long amountToCharge = 100L;
+            long balanceAmount = 50L;
+            UserPoint userPoint = new UserPoint(0L, balanceAmount, System.currentTimeMillis());
+
+            // when
+            UserPoint chargedUserPoint = userPoint.charge(amountToCharge);
+
+            // then
+            assertThat(chargedUserPoint.point()).isEqualTo(amountToCharge + balanceAmount);
+            assertThat(chargedUserPoint.id()).isEqualTo(0L);
+        }
+    }
+
     @DisplayName("포인트 차감 - use() 테스트")
     @Nested
     class UseTest {
