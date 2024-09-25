@@ -3,7 +3,9 @@ package io.hhplus.tdd.point.dto;
 import io.hhplus.tdd.point.model.PointHistory;
 import io.hhplus.tdd.point.model.TransactionType;
 import io.hhplus.tdd.point.model.UserPoint;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 public class PointDto {
 
@@ -46,5 +48,19 @@ public class PointDto {
             return new PointHistoryDetail(pointHistory.id(), pointHistory.userId(),
                 pointHistory.amount(), pointHistory.type(), pointHistory.updateMillis());
         }
+    }
+
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Getter
+    public static class ChargeRequest {
+        private long amount;
+    }
+
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Getter
+    public static class UseRequest {
+        private long amount;
     }
 }
