@@ -10,6 +10,7 @@ import lombok.Getter;
 public enum PointErrorCode implements ApplicationErrorCode {
 
     INVALID_POINT_AMOUNT("400_1", "금액은 음수이거나 0이면 안됩니다."),
+    INSUFFICIENT_POINT_BALANCE("400_2", "잔액이 부족합니다."),
     NOT_FOUND_USER_POINT("404_1", "UserPoint를 찾을 수 없습니다.");
 
     private final String code;
