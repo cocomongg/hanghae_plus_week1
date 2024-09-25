@@ -2,18 +2,24 @@ package io.hhplus.tdd.point.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import io.hhplus.tdd.point.dto.PointDto.PointDetail;
+import io.hhplus.tdd.point.dto.PointDto.PointHistoryDetail;
 import io.hhplus.tdd.point.exception.PointErrorCode;
 import io.hhplus.tdd.point.exception.PointException;
+import io.hhplus.tdd.point.model.PointHistory;
+import io.hhplus.tdd.point.model.TransactionType;
 import io.hhplus.tdd.point.model.UserPoint;
 import io.hhplus.tdd.point.repository.PointHistoryInMemoryRepository;
 import io.hhplus.tdd.point.repository.PointHistoryRepository;
 import io.hhplus.tdd.point.repository.UserPointInMemoryRepository;
 import io.hhplus.tdd.point.repository.UserPointRepository;
 import io.hhplus.tdd.point.validator.PointValidator;
+import java.sql.Ref;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -49,6 +55,7 @@ public class PointServiceIntegrationTest {
             Object pointHistoryTable = ReflectionTestUtils.getField(pointHistoryRepository, "pointHistoryTable");
             if(!ObjectUtils.isEmpty(pointHistoryTable)) {
                 ReflectionTestUtils.setField(pointHistoryTable, "table", new ArrayList<>());
+                ReflectionTestUtils.setField(pointHistoryTable, "cursor", 1);
             }
         }
     }
@@ -88,6 +95,69 @@ public class PointServiceIntegrationTest {
 
          boolean isUserPointRepositoryUseTable() {
             return userPointRepository instanceof UserPointInMemoryRepository;
+        }
+    }
+
+    @DisplayName("포인트 내역 조회 통합 테스트 - getPointHistories()")
+    @Nested
+    class GetPointHistoriesIntegrationTest {
+        @DisplayName("userId에 해당하는 내역이 없으면 빈 리스트를 반환한다.")
+        @Test
+        void should_ReturnEmptyList_When_NotExist() {
+            // given
+            long notExistsUserId = -1L;
+
+            // when
+            List<PointHistoryDetail> results = pointService.getUserPointHistories(notExistsUserId);
+
+            // then
+            assertThat(results).isEmpty();
+        }
+
+        @DisplayName("userId에 해당하는 PointHistory dto(PointHistoryDetail)목록을 반환한다.")
+        @Test
+        void should_ReturnHistoryDetailList_When_Exist() {
+            // given
+            long existUserId = 0L;
+
+            List<PointHistory> expectedPointHistories = List.of(
+                new PointHistory(1L, existUserId, 100L, TransactionType.CHARGE,
+                    System.currentTimeMillis()),
+                new PointHistory(2L, existUserId, 50L, TransactionType.USE,
+                    System.currentTimeMillis())
+            );
+
+            pointHistoryRepository.insert(expectedPointHistories.get(0));
+            pointHistoryRepository.insert(expectedPointHistories.get(1));
+
+            // when
+            List<PointHistoryDetail> results = pointService.getUserPointHistories(existUserId);
+
+            // then
+            assertThat(results)
+                .hasSize(2)
+                .extracting(
+                    PointHistoryDetail::getId,
+                    PointHistoryDetail::getUserId,
+                    PointHistoryDetail::getAmount,
+                    PointHistoryDetail::getType,
+                    PointHistoryDetail::getUpdateMillis)
+                .containsExactlyInAnyOrder(
+                    tuple(
+                        expectedPointHistories.get(0).id(),
+                        expectedPointHistories.get(0).userId(),
+                        expectedPointHistories.get(0).amount(),
+                        expectedPointHistories.get(0).type(),
+                        expectedPointHistories.get(0).updateMillis()
+                    ),
+                    tuple(
+                        expectedPointHistories.get(1).id(),
+                        expectedPointHistories.get(1).userId(),
+                        expectedPointHistories.get(1).amount(),
+                        expectedPointHistories.get(1).type(),
+                        expectedPointHistories.get(1).updateMillis()
+                    )
+                );
         }
     }
 }
