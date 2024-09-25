@@ -16,7 +16,6 @@ import io.hhplus.tdd.point.repository.PointHistoryRepository;
 import io.hhplus.tdd.point.repository.UserPointInMemoryRepository;
 import io.hhplus.tdd.point.repository.UserPointRepository;
 import io.hhplus.tdd.point.validator.PointValidator;
-import java.sql.Ref;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -158,6 +157,60 @@ public class PointServiceIntegrationTest {
                         expectedPointHistories.get(1).updateMillis()
                     )
                 );
+        }
+    }
+
+    @DisplayName("포인트 충전 통합 테스트 - charge()")
+    @Nested
+    class ChargeIntegrationTest {
+
+        @DisplayName("포인트 충전 금액이 음수라면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_When_AmountIsNegative () {
+            // given
+            long negativeAmount = -100L;
+
+            // when, then
+            assertThatThrownBy(() -> pointService.charge(0L, negativeAmount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.INVALID_POINT_AMOUNT.getMessage());
+        }
+
+        @DisplayName("포인트 충전 금액이 0이라면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_When_AmountIsZero () {
+            // given
+            long zeroAmount = 0L;
+
+            // when, then
+            assertThatThrownBy(() -> pointService.charge(0L, zeroAmount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.INVALID_POINT_AMOUNT.getMessage());
+        }
+        
+        @DisplayName("포인트 충전을 하면 충전한 만큼 UserPoint가 업데이트되고, PointHistory에 내역을 저장한다.")
+        @Test
+        void should_AddAmountToUserPointAndSave_When_UserPointExists () {
+            // given
+            long id = 1L;
+            long beforeAmount = 50L;
+            long chargeAmount = 100L;
+            UserPoint userPoint = new UserPoint(id, beforeAmount,
+                System.currentTimeMillis());
+
+            userPointRepository.insertOrUpdate(userPoint);
+
+            // when
+            PointDetail result = pointService.charge(id, chargeAmount);
+
+            // then
+            assertThat(result.getId()).isEqualTo(id);
+            assertThat(result.getPointAmount()).isEqualTo(beforeAmount + chargeAmount);
+
+            PointHistory pointHistory = pointHistoryRepository.selectAllByUserId(id).get(0);
+            assertThat(pointHistory.userId()).isEqualTo(id);
+            assertThat(pointHistory.amount()).isEqualTo(chargeAmount);
+            assertThat(pointHistory.type()).isEqualTo(TransactionType.CHARGE);
         }
     }
 }
