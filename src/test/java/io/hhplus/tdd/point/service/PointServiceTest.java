@@ -301,5 +301,34 @@ class PointServiceTest {
             assertThat(capturedUserPoint.id()).isEqualTo(id);
             assertThat(capturedUserPoint.point()).isEqualTo(balanceAmount - useAmount);
         }
+
+        @DisplayName("포인트를 사용하면 사용한 내역을 저장한다.")
+        @Test
+        void should_SavePointHistory_When_Use() {
+            // given
+            long id = 0L;
+            long useAmount = 50L;
+            long balanceAmount = 100L;
+            UserPoint userPoint = new UserPoint(id, balanceAmount, System.currentTimeMillis());
+            UserPoint expectedUserPoint =
+                new UserPoint(id, balanceAmount - useAmount, System.currentTimeMillis());
+
+            when(userPointRepository.selectById(id))
+                .thenReturn(Optional.of(userPoint));
+
+            when(userPointRepository.insertOrUpdate(any(UserPoint.class)))
+                .thenReturn(expectedUserPoint);
+
+            // when
+            pointService.use(id, useAmount);
+
+            // then
+            ArgumentCaptor<PointHistory> captor = ArgumentCaptor.forClass(PointHistory.class);
+            verify(pointHistoryRepository).insert(captor.capture());
+            PointHistory pointHistory = captor.getValue();
+
+            assertThat(pointHistory.userId()).isEqualTo(id);
+            assertThat(pointHistory.amount()).isEqualTo(useAmount);
+        }
     }
 }

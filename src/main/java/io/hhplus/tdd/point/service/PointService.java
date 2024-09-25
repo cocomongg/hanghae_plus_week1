@@ -62,6 +62,10 @@ public class PointService {
 
         UserPoint upatedUserPoint = userPointRepository.insertOrUpdate(userPoint.use(amount));
 
+        PointHistory chargeHistory =
+            PointHistory.createUseHistory(id, amount, System.currentTimeMillis());
+        pointHistoryRepository.insert(chargeHistory);
+
         return PointDetail.of(upatedUserPoint);
     }
 }
