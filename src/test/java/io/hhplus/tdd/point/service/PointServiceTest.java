@@ -21,6 +21,7 @@ import io.hhplus.tdd.point.validator.PointValidator;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.ReentrantLock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class PointServiceTest {
 
     @Mock
     private PointHistoryRepository pointHistoryRepository;
+
+    @Mock
+    private SelectiveLockFactory lockFactory;
 
     @InjectMocks
     private PointService pointService;
@@ -167,6 +171,9 @@ class PointServiceTest {
 
             doNothing().when(pointValidator).checkAmount(chargeAmount);
 
+            when(lockFactory.getLock(firstChargerId))
+                .thenReturn(new ReentrantLock());
+
             when(userPointRepository.selectById(firstChargerId))
                 .thenReturn(Optional.empty());
 
@@ -200,6 +207,9 @@ class PointServiceTest {
 
             doNothing().when(pointValidator).checkAmount(chargeAmount);
 
+            when(lockFactory.getLock(existId))
+                .thenReturn(new ReentrantLock());
+
             when(userPointRepository.selectById(existId))
                 .thenReturn(Optional.of(existUserPoint));
 
@@ -224,6 +234,9 @@ class PointServiceTest {
             UserPoint userPoint = new UserPoint(id, chargeAmount, System.currentTimeMillis());
 
             doNothing().when(pointValidator).checkAmount(chargeAmount);
+
+            when(lockFactory.getLock(id))
+                .thenReturn(new ReentrantLock());
 
             when(userPointRepository.selectById(id))
                 .thenReturn(Optional.empty());
@@ -256,6 +269,9 @@ class PointServiceTest {
 
             doNothing().when(pointValidator).checkAmount(amount);
 
+            when(lockFactory.getLock(notExistId))
+                .thenReturn(new ReentrantLock());
+
             when(userPointRepository.selectById(notExistId))
                 .thenReturn(Optional.empty());
 
@@ -276,6 +292,9 @@ class PointServiceTest {
             UserPoint userPoint = new UserPoint(id, balanceAmount, System.currentTimeMillis());
             UserPoint expectedUserPoint = new UserPoint(id, balanceAmount - useAmount,
                 System.currentTimeMillis());
+
+            when(lockFactory.getLock(id))
+                .thenReturn(new ReentrantLock());
 
             when(userPointRepository.selectById(id))
                 .thenReturn(Optional.of(userPoint));
@@ -311,6 +330,9 @@ class PointServiceTest {
             UserPoint userPoint = new UserPoint(id, balanceAmount, System.currentTimeMillis());
             UserPoint expectedUserPoint =
                 new UserPoint(id, balanceAmount - useAmount, System.currentTimeMillis());
+
+            when(lockFactory.getLock(id))
+                .thenReturn(new ReentrantLock());
 
             when(userPointRepository.selectById(id))
                 .thenReturn(Optional.of(userPoint));
