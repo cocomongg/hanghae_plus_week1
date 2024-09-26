@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,14 +37,10 @@ import org.springframework.util.ObjectUtils;
 @SpringBootTest
 public class PointServiceIntegrationTest {
 
-//    private static final Logger log = LoggerFactory.getLogger(PointServiceIntegrationTest.class);
-
     @Autowired
     private UserPointRepository userPointRepository;
     @Autowired
     private PointHistoryRepository pointHistoryRepository;
-    @Autowired
-    private PointValidator pointValidator;
     @Autowired
     private PointService pointService;
 
@@ -319,28 +316,16 @@ public class PointServiceIntegrationTest {
 
             userPointRepository.insertOrUpdate(new UserPoint(userId, 0L, System.currentTimeMillis()));
 
-            int threadCount = 20;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-
             // when
-            for(int i = 0; i < threadCount; ++i) {
-                executorService.submit(() -> {
-                   try {
-                       pointService.charge(userId, chargeAmount);
-                   } finally {
-                       latch.countDown();
-                   }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            int executeCount = 20;
+            this.executeConcurrentTask(executeCount, () -> pointService.charge(userId, chargeAmount));
 
             // then
             Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
             assertThat(userPointOptional).isPresent();
+
             UserPoint userPoint = userPointOptional.get();
-            assertThat(userPoint.point()).isEqualTo( chargeAmount * threadCount);
+            assertThat(userPoint.point()).isEqualTo( chargeAmount * executeCount);
         }
 
         @DisplayName("여러 명의 유저에 대해서 충전이 동시에 이뤄질 경우 각 유저의 충전 금액만큼 충전된다.")
@@ -356,23 +341,13 @@ public class PointServiceIntegrationTest {
                     .insertOrUpdate(new UserPoint(userId, 0L, System.currentTimeMillis()));
             }
 
-            int threadCount = 20;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-
             // when
-            for(int i = 0; i < threadCount; ++i) {
-                int userId = i % userIds.length + 1; // 각 유저당 2번씩 반복
-                executorService.submit(() -> {
-                    try {
-                        pointService.charge(userId, chargeAmount);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            int executeCount = 20;
+            AtomicInteger counter = new AtomicInteger(0);
+            this.executeConcurrentTask(executeCount, () -> {
+                long userId = counter.getAndIncrement() % userIds.length + 1; // 각 userId당 2번씩 호출
+                pointService.charge(userId, chargeAmount);
+            });
 
             // then
             for(long userId : userIds) {
@@ -382,7 +357,6 @@ public class PointServiceIntegrationTest {
                 UserPoint userPoint = userPointOptional.get();
                 assertThat(userPoint.point()).isEqualTo(chargeAmount * 2); /// 각 유저당 2번씩 반복
             }
-
         }
 
         @DisplayName("한 명의 유저에 대해서 사용이 동시에 이뤄질 경우 사용한 금액만큼 사용된다.")
@@ -395,29 +369,17 @@ public class PointServiceIntegrationTest {
 
             userPointRepository.insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
 
-            int threadCount = 20;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-
             // when
-            for(int i = 0; i < threadCount; ++i) {
-                executorService.submit(() -> {
-                    try {
-                        pointService.use(userId, useAmount);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            int executeCount = 20;
+            this.executeConcurrentTask(executeCount, () -> pointService.use(userId, useAmount));
 
             // then
             Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
             assertThat(userPointOptional).isPresent();
 
             UserPoint userPoint = userPointOptional.get();
-            assertThat(userPoint.point()).isEqualTo( balanceAmount - useAmount * threadCount);
+            assertThat(userPoint.point())
+                .isEqualTo( balanceAmount - useAmount * executeCount);
         }
 
         @DisplayName("여러 명의 유저에 대해서 사용이 동시에 이뤄질 경우 각 유저의 사용금액만큼 사용된다.")
@@ -434,23 +396,13 @@ public class PointServiceIntegrationTest {
                     .insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
             }
 
-            int threadCount = 20;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-
             // when
-            for(int i = 0; i < threadCount; ++i) {
-                int userId = i % userIds.length + 1; // 각 유저당 2번씩 반복
-                executorService.submit(() -> {
-                    try {
-                        pointService.use(userId, useAmount);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            int executeCount = 20;
+            AtomicInteger counter = new AtomicInteger(0);
+            this.executeConcurrentTask(executeCount, () -> {
+                long userId = counter.getAndIncrement() % userIds.length + 1; // 각 userId당 2번씩 호출
+                pointService.use(userId, useAmount);
+            });
 
             // then
             for(long userId : userIds) {
@@ -475,27 +427,15 @@ public class PointServiceIntegrationTest {
             userPointRepository.insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
 
             // when
-            int threadCount = 20;
-            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
-
-            for(int i = 0; i < threadCount; ++i) {
-                int idx = i;
-                executorService.submit(() -> {
-                    try {
-                        // 전체 실행 횟수의 절반은 charge, 나머지 절반은 use
-                        if(idx % 2 == 0) {
-                            pointService.charge(userId, chargeAmount);
-                        } else {
-                            pointService.use(userId, useAmount);
-                        }
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-            latch.await();
-            executorService.shutdown();
+            int executeCount = 20;
+            AtomicInteger counter = new AtomicInteger(0);
+            this.executeConcurrentTask(executeCount, () -> {
+                if(counter.getAndIncrement() % 2 == 0) { // charge와 use를 섞어서 절반씩 호출
+                    pointService.charge(userId, chargeAmount);
+                } else {
+                    pointService.use(userId, useAmount);
+                }
+            });
 
             // then
             Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
@@ -503,8 +443,26 @@ public class PointServiceIntegrationTest {
 
             UserPoint userPoint = userPointOptional.get();
             assertThat(userPoint.point()).isEqualTo(balanceAmount
-                + chargeAmount * (threadCount / 2) - useAmount * (threadCount / 2)
+                + chargeAmount * (executeCount / 2) - useAmount * (executeCount / 2)
             );
+        }
+
+        private void executeConcurrentTask(int executeCount, Runnable task) throws InterruptedException {
+            ExecutorService executorService = Executors.newFixedThreadPool(executeCount);
+            CountDownLatch latch = new CountDownLatch(executeCount);
+
+            for(int i = 0; i < executeCount; ++i) {
+                executorService.submit(() -> {
+                    try {
+                        task.run();
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            latch.await();
+            executorService.shutdown();
         }
     }
 }
