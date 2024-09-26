@@ -19,6 +19,10 @@ import io.hhplus.tdd.point.validator.PointValidator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +35,8 @@ import org.springframework.util.ObjectUtils;
 
 @SpringBootTest
 public class PointServiceIntegrationTest {
+
+//    private static final Logger log = LoggerFactory.getLogger(PointServiceIntegrationTest.class);
 
     @Autowired
     private UserPointRepository userPointRepository;
@@ -297,6 +303,208 @@ public class PointServiceIntegrationTest {
 
         boolean isUserPointRepositoryUseTable() {
             return userPointRepository instanceof UserPointInMemoryRepository;
+        }
+    }
+
+    @DisplayName("포인트 충전/사용 동시성 테스트 - concurrency")
+    @Nested
+    class ChargeAndUseConcurrencyTest {
+        @DisplayName("한 명의 유저에 대해서 충전이 동시에 이뤄질 경우 충전한 금액만큼 충전된다.")
+        @Test
+        void should_plusPointAsMuchAsCharge_When_ConcurrentChargedSameUser()
+            throws InterruptedException {
+            // given
+            long userId = 1L;
+            long chargeAmount = 100L;
+
+            userPointRepository.insertOrUpdate(new UserPoint(userId, 0L, System.currentTimeMillis()));
+
+            int threadCount = 20;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+
+            // when
+            for(int i = 0; i < threadCount; ++i) {
+                executorService.submit(() -> {
+                   try {
+                       pointService.charge(userId, chargeAmount);
+                   } finally {
+                       latch.countDown();
+                   }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // then
+            Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+            assertThat(userPointOptional).isPresent();
+            UserPoint userPoint = userPointOptional.get();
+            assertThat(userPoint.point()).isEqualTo( chargeAmount * threadCount);
+        }
+
+        @DisplayName("여러 명의 유저에 대해서 충전이 동시에 이뤄질 경우 각 유저의 충전 금액만큼 충전된다.")
+        @Test
+        void should_plusPointAsMuchAsCharge_When_ConcurrentChargedMultipleUser ()
+            throws InterruptedException {
+            // given
+            long[] userIds = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            long chargeAmount = 100L;
+
+            for (long userId : userIds) {
+                userPointRepository
+                    .insertOrUpdate(new UserPoint(userId, 0L, System.currentTimeMillis()));
+            }
+
+            int threadCount = 20;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+
+            // when
+            for(int i = 0; i < threadCount; ++i) {
+                int userId = i % userIds.length + 1; // 각 유저당 2번씩 반복
+                executorService.submit(() -> {
+                    try {
+                        pointService.charge(userId, chargeAmount);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // then
+            for(long userId : userIds) {
+                Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+                assertThat(userPointOptional).isPresent();
+
+                UserPoint userPoint = userPointOptional.get();
+                assertThat(userPoint.point()).isEqualTo(chargeAmount * 2); /// 각 유저당 2번씩 반복
+            }
+
+        }
+
+        @DisplayName("한 명의 유저에 대해서 사용이 동시에 이뤄질 경우 사용한 금액만큼 사용된다.")
+        @Test
+        void should_MinusPointAsMuchAsUse_When_ConcurrentUseSameUser() throws InterruptedException {
+            // given
+            long userId = 1L;
+            long balanceAmount = 10_000L;
+            long useAmount = 100L;
+
+            userPointRepository.insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
+
+            int threadCount = 20;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+
+            // when
+            for(int i = 0; i < threadCount; ++i) {
+                executorService.submit(() -> {
+                    try {
+                        pointService.use(userId, useAmount);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // then
+            Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+            assertThat(userPointOptional).isPresent();
+
+            UserPoint userPoint = userPointOptional.get();
+            assertThat(userPoint.point()).isEqualTo( balanceAmount - useAmount * threadCount);
+        }
+
+        @DisplayName("여러 명의 유저에 대해서 사용이 동시에 이뤄질 경우 각 유저의 사용금액만큼 사용된다.")
+        @Test
+        void should_MinusPointAsMuchAsUse_When_ConcurrentUseMultipleUser ()
+            throws InterruptedException {
+            // given
+            long[] userIds = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            long balanceAmount = 10_000L;
+            long useAmount = 100L;
+
+            for (long userId : userIds) {
+                userPointRepository
+                    .insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
+            }
+
+            int threadCount = 20;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+
+            // when
+            for(int i = 0; i < threadCount; ++i) {
+                int userId = i % userIds.length + 1; // 각 유저당 2번씩 반복
+                executorService.submit(() -> {
+                    try {
+                        pointService.use(userId, useAmount);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // then
+            for(long userId : userIds) {
+                Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+                assertThat(userPointOptional).isPresent();
+
+                UserPoint userPoint = userPointOptional.get();
+                assertThat(userPoint.point()).isEqualTo(balanceAmount - useAmount * 2); // 각 유저당 2번씩 반복
+            }
+        }
+
+        @DisplayName("한 명의 유저에 대해서 충전과 사용이 동시에 이뤄질 경우 해당 금액만큼 충전되고 사용된다.")
+        @Test
+        void should_CorrectAmount_When_ConcurrentChargeAndUseSameUser()
+            throws InterruptedException {
+            // given
+            long userId = 1L;
+            long balanceAmount = 1_000L;
+            long chargeAmount = 100L;
+            long useAmount = 50L;
+
+            userPointRepository.insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
+
+            // when
+            int threadCount = 20;
+            ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(threadCount);
+
+            for(int i = 0; i < threadCount; ++i) {
+                int idx = i;
+                executorService.submit(() -> {
+                    try {
+                        // 전체 실행 횟수의 절반은 charge, 나머지 절반은 use
+                        if(idx % 2 == 0) {
+                            pointService.charge(userId, chargeAmount);
+                        } else {
+                            pointService.use(userId, useAmount);
+                        }
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            latch.await();
+            executorService.shutdown();
+
+            // then
+            Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+            assertThat(userPointOptional).isPresent();
+
+            UserPoint userPoint = userPointOptional.get();
+            assertThat(userPoint.point()).isEqualTo(balanceAmount
+                + chargeAmount * (threadCount / 2) - useAmount * (threadCount / 2)
+            );
         }
     }
 }
