@@ -26,6 +26,8 @@ public class PointService {
 
     private final SelectiveLockFactory lockFactory;
 
+    private static final long MAX_AMOUNT = 100_000;
+
     public PointDetail getUserPoint(long id) throws PointException {
         UserPoint userPoint = userPointRepository.selectById(id)
             .orElseThrow(() -> PointException.NOT_FOUND_USER_POINT);
@@ -49,7 +51,8 @@ public class PointService {
             UserPoint userPoint = userPointRepository.selectById(id)
                 .orElse(UserPoint.empty(id));
 
-            UserPoint savedUserPoint = userPointRepository.insertOrUpdate(userPoint.charge(amount));
+            UserPoint savedUserPoint =
+                userPointRepository.insertOrUpdate(userPoint.charge(amount, MAX_AMOUNT));
 
             PointHistory chargeHistory =
                 PointHistory.createChargeHistory(id, amount, System.currentTimeMillis());

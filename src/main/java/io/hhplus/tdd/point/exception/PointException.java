@@ -10,6 +10,9 @@ public class PointException extends ApplicationException {
     public static final PointException INSUFFICIENT_POINT_BALANCE =
         new PointException(PointErrorCode.INSUFFICIENT_POINT_BALANCE);
 
+    public static final PointException EXCEED_POINT_BALANCE =
+        new PointException(PointErrorCode.EXCEED_POINT_BALANCE);
+
     public static final PointException INVALID_POINT_AMOUNT =
         new PointException(PointErrorCode.INVALID_POINT_AMOUNT);
 

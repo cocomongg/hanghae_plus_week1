@@ -12,7 +12,11 @@ public record UserPoint(
         return new UserPoint(id, 0, System.currentTimeMillis());
     }
 
-    public UserPoint charge(long amount) {
+    public UserPoint charge(long amount, long maxAmount) {
+        int defaultMaxAmount = 100_000;
+        if(defaultMaxAmount < point + amount) {
+            throw PointException.EXCEED_POINT_BALANCE;
+        }
         return new UserPoint(id, point + amount, System.currentTimeMillis());
     }
 
