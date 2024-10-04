@@ -14,6 +14,21 @@ class UserPointTest {
     @DisplayName("포인트 충전 - charge() 테스트")
     @Nested
     class ChargeTest {
+        @DisplayName("최대 잔고 금액을 넘으면 PointException이 발생한다.")
+        @Test
+        void should_ThrowPointException_When_ExceedMaxAmount() {
+            // given
+            long balanceAmount = 11_000L;
+            long amountToCharge = 90_000L;
+            long maxAmount = 100_000L;
+
+            UserPoint userPoint = new UserPoint(0L, balanceAmount, System.currentTimeMillis());
+
+            // when, then
+            assertThatThrownBy(() -> userPoint.charge(amountToCharge, maxAmount))
+                .isInstanceOf(PointException.class)
+                .hasMessage(PointErrorCode.EXCEED_POINT_BALANCE.getMessage());
+        }
         @DisplayName("포인트를 충전한 만큼 더하여 UserPoint를 반환한다.")
         @Test
         void should_PlusPointAndReturn_When_Charge() {
@@ -23,7 +38,7 @@ class UserPointTest {
             UserPoint userPoint = new UserPoint(0L, balanceAmount, System.currentTimeMillis());
 
             // when
-            UserPoint chargedUserPoint = userPoint.charge(amountToCharge);
+            UserPoint chargedUserPoint = userPoint.charge(amountToCharge, 100_000L);
 
             // then
             assertThat(chargedUserPoint.point()).isEqualTo(amountToCharge + balanceAmount);

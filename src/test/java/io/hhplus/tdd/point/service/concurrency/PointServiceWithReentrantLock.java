@@ -1,5 +1,4 @@
-package io.hhplus.tdd.point.service;
-
+package io.hhplus.tdd.point.service.concurrency;
 
 import io.hhplus.tdd.point.dto.PointDto.PointDetail;
 import io.hhplus.tdd.point.dto.PointDto.PointHistoryDetail;
@@ -11,41 +10,22 @@ import io.hhplus.tdd.point.repository.UserPointRepository;
 import io.hhplus.tdd.point.validator.PointValidator;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-@RequiredArgsConstructor
-@Service
-public class PointService {
+public class PointServiceWithReentrantLock extends ConcurrencyControlPointService{
 
-    private final UserPointRepository userPointRepository;
-    private final PointHistoryRepository pointHistoryRepository;
-
-    private final PointValidator pointValidator;
-
-    private final SelectiveLockFactory lockFactory;
-
-    private static final long MAX_AMOUNT = 100_000;
-
-    public PointDetail getUserPoint(long id) throws PointException {
-        UserPoint userPoint = userPointRepository.selectById(id)
-            .orElseThrow(() -> PointException.NOT_FOUND_USER_POINT);
-
-        return PointDetail.of(userPoint);
+    public PointServiceWithReentrantLock(
+        UserPointRepository userPointRepository,
+        PointHistoryRepository pointHistoryRepository,
+        PointValidator pointValidator) {
+        super(userPointRepository, pointHistoryRepository, pointValidator);
     }
 
-    public List<PointHistoryDetail> getUserPointHistories(long userId) {
-        return pointHistoryRepository.selectAllByUserId(userId)
-            .stream()
-            .map(PointHistoryDetail::of)
-            .collect(Collectors.toList());
-    }
+    private final ReentrantLock lock = new ReentrantLock();
 
+    @Override
     public PointDetail charge(long id, long amount) {
         pointValidator.checkAmount(amount);
 
-        ReentrantLock lock = lockFactory.getLock(id);
         lock.lock();
         try {
             UserPoint userPoint = userPointRepository.selectById(id)
@@ -64,10 +44,10 @@ public class PointService {
         }
     }
 
+    @Override
     public PointDetail use(long id, long amount) {
         pointValidator.checkAmount(amount);
 
-        ReentrantLock lock = lockFactory.getLock(id);
         lock.lock();
         try {
             UserPoint userPoint = userPointRepository.selectById(id)

@@ -19,6 +19,11 @@ import io.hhplus.tdd.point.validator.PointValidator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,8 +41,6 @@ public class PointServiceIntegrationTest {
     private UserPointRepository userPointRepository;
     @Autowired
     private PointHistoryRepository pointHistoryRepository;
-    @Autowired
-    private PointValidator pointValidator;
     @Autowired
     private PointService pointService;
 
@@ -297,6 +300,169 @@ public class PointServiceIntegrationTest {
 
         boolean isUserPointRepositoryUseTable() {
             return userPointRepository instanceof UserPointInMemoryRepository;
+        }
+    }
+
+    @DisplayName("포인트 충전/사용 동시성 테스트 - concurrency")
+    @Nested
+    class ChargeAndUseConcurrencyTest {
+        @DisplayName("한 명의 유저에 대해서 충전이 동시에 이뤄질 경우 충전한 금액만큼 충전된다.")
+        @Test
+        void should_plusPointAsMuchAsCharge_When_ConcurrentChargedSameUser()
+            throws InterruptedException {
+            // given
+            long userId = 1L;
+            long chargeAmount = 100L;
+
+            userPointRepository.insertOrUpdate(new UserPoint(userId, 0L, System.currentTimeMillis()));
+
+            // when
+            int executeCount = 20;
+            this.executeConcurrentTask(executeCount, () -> pointService.charge(userId, chargeAmount));
+
+            // then
+            Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+            assertThat(userPointOptional).isPresent();
+
+            UserPoint userPoint = userPointOptional.get();
+            assertThat(userPoint.point()).isEqualTo( chargeAmount * executeCount);
+        }
+
+        @DisplayName("여러 명의 유저에 대해서 충전이 동시에 이뤄질 경우 각 유저의 충전 금액만큼 충전된다.")
+        @Test
+        void should_plusPointAsMuchAsCharge_When_ConcurrentChargedMultipleUser ()
+            throws InterruptedException {
+            // given
+            long[] userIds = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            long chargeAmount = 100L;
+
+            for (long userId : userIds) {
+                userPointRepository
+                    .insertOrUpdate(new UserPoint(userId, 0L, System.currentTimeMillis()));
+            }
+
+            // when
+            int executeCount = 20;
+            AtomicInteger counter = new AtomicInteger(0);
+            this.executeConcurrentTask(executeCount, () -> {
+                long userId = counter.getAndIncrement() % userIds.length + 1; // 각 userId당 2번씩 호출
+                pointService.charge(userId, chargeAmount);
+            });
+
+            // then
+            for(long userId : userIds) {
+                Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+                assertThat(userPointOptional).isPresent();
+
+                UserPoint userPoint = userPointOptional.get();
+                assertThat(userPoint.point()).isEqualTo(chargeAmount * 2); /// 각 유저당 2번씩 반복
+            }
+        }
+
+        @DisplayName("한 명의 유저에 대해서 사용이 동시에 이뤄질 경우 사용한 금액만큼 사용된다.")
+        @Test
+        void should_MinusPointAsMuchAsUse_When_ConcurrentUseSameUser() throws InterruptedException {
+            // given
+            long userId = 1L;
+            long balanceAmount = 10_000L;
+            long useAmount = 100L;
+
+            userPointRepository.insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
+
+            // when
+            int executeCount = 20;
+            this.executeConcurrentTask(executeCount, () -> pointService.use(userId, useAmount));
+
+            // then
+            Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+            assertThat(userPointOptional).isPresent();
+
+            UserPoint userPoint = userPointOptional.get();
+            assertThat(userPoint.point())
+                .isEqualTo( balanceAmount - useAmount * executeCount);
+        }
+
+        @DisplayName("여러 명의 유저에 대해서 사용이 동시에 이뤄질 경우 각 유저의 사용금액만큼 사용된다.")
+        @Test
+        void should_MinusPointAsMuchAsUse_When_ConcurrentUseMultipleUser ()
+            throws InterruptedException {
+            // given
+            long[] userIds = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            long balanceAmount = 10_000L;
+            long useAmount = 100L;
+
+            for (long userId : userIds) {
+                userPointRepository
+                    .insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
+            }
+
+            // when
+            int executeCount = 20;
+            AtomicInteger counter = new AtomicInteger(0);
+            this.executeConcurrentTask(executeCount, () -> {
+                long userId = counter.getAndIncrement() % userIds.length + 1; // 각 userId당 2번씩 호출
+                pointService.use(userId, useAmount);
+            });
+
+            // then
+            for(long userId : userIds) {
+                Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+                assertThat(userPointOptional).isPresent();
+
+                UserPoint userPoint = userPointOptional.get();
+                assertThat(userPoint.point()).isEqualTo(balanceAmount - useAmount * 2); // 각 유저당 2번씩 반복
+            }
+        }
+
+        @DisplayName("한 명의 유저에 대해서 충전과 사용이 동시에 이뤄질 경우 해당 금액만큼 충전되고 사용된다.")
+        @Test
+        void should_CorrectAmount_When_ConcurrentChargeAndUseSameUser()
+            throws InterruptedException {
+            // given
+            long userId = 1L;
+            long balanceAmount = 1_000L;
+            long chargeAmount = 100L;
+            long useAmount = 50L;
+
+            userPointRepository.insertOrUpdate(new UserPoint(userId, balanceAmount, System.currentTimeMillis()));
+
+            // when
+            int executeCount = 20;
+            AtomicInteger counter = new AtomicInteger(0);
+            this.executeConcurrentTask(executeCount, () -> {
+                if(counter.getAndIncrement() % 2 == 0) { // charge와 use를 섞어서 절반씩 호출
+                    pointService.charge(userId, chargeAmount);
+                } else {
+                    pointService.use(userId, useAmount);
+                }
+            });
+
+            // then
+            Optional<UserPoint> userPointOptional = userPointRepository.selectById(userId);
+            assertThat(userPointOptional).isPresent();
+
+            UserPoint userPoint = userPointOptional.get();
+            assertThat(userPoint.point()).isEqualTo(balanceAmount
+                + chargeAmount * (executeCount / 2) - useAmount * (executeCount / 2)
+            );
+        }
+
+        private void executeConcurrentTask(int executeCount, Runnable task) throws InterruptedException {
+            ExecutorService executorService = Executors.newFixedThreadPool(executeCount);
+            CountDownLatch latch = new CountDownLatch(executeCount);
+
+            for(int i = 0; i < executeCount; ++i) {
+                executorService.submit(() -> {
+                    try {
+                        task.run();
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            latch.await();
+            executorService.shutdown();
         }
     }
 }
